@@ -140,4 +140,4 @@ class BookCreator(object):
             self._notes = _e('body', None, name="notes", *notesflat)
             self._r.insert(2, self._notes)
 
-        return Book.fromParsed(self._r, None, True)
+        return Book.fromParsed(self._r, True)
