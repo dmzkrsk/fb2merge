@@ -10,9 +10,11 @@ SRC_OCR = etree.XPath('//f:description/f:document-info/f:src-ocr', namespaces=FB
 ELEMENTS_WITH_ID = etree.XPath('//*[@id]')
 ELEMENTS_WITH_REF = etree.XPath('//*[@x:href and starts-with(@x:href, "#")]', namespaces=FB2_NSMAP)
 
-def first_or_none(selector, tree):
+_eq = lambda x: x
+
+def first_or_none(selector, tree, processor=None):
     l = selector(tree)
 
     if not l:
         return None
-    return l[0]
+    return (processor or _eq)(l[0])
