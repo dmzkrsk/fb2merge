@@ -2,6 +2,7 @@
 from itertools import dropwhile
 from lxml import etree
 import hashlib
+from operator import attrgetter
 import re
 from fb2tools.xpath import TITLE_INFO, SRC_TITLE_INFO, first_or_none
 import os
@@ -12,8 +13,8 @@ from xpath import ELEMENTS_WITH_ID, ELEMENTS_WITH_REF
 from xml import build_element as _e
 from save import SaveXml, SaveZip
 
-BOOK_TITLE = etree.XPath('//f:description/f:title-info/f:book-title/text()', namespaces=FB2_NSMAP)
-ORIGINAL_TITLE = etree.XPath('//f:description/f:src-title-info/f:book-title/text()', namespaces=FB2_NSMAP)
+BOOK_TITLE = etree.XPath('//f:description/f:title-info/f:book-title', namespaces=FB2_NSMAP)
+ORIGINAL_TITLE = etree.XPath('//f:description/f:src-title-info/f:book-title', namespaces=FB2_NSMAP)
 BODY = etree.XPath('//f:FictionBook/f:body', namespaces=FB2_NSMAP)
 
 AUTHORS = etree.XPath('//f:description/f:title-info/f:author', namespaces=FB2_NSMAP)
@@ -132,7 +133,7 @@ class Book(object):
         return min(dv) if dv else None
 
     def getTitle(self, original=False):
-        return first_or_none(ORIGINAL_TITLE if original else BOOK_TITLE, self._tree)
+        return first_or_none(ORIGINAL_TITLE if original else BOOK_TITLE, self._tree, attrgetter('text'))
 
     def getAuthors(self):
         return AUTHORS(self._tree)
