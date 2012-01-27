@@ -4,12 +4,12 @@ import sys
 from optparse import OptionParser
 import logging
 import glob
+from fb2tools.book import Book
 from lxml.etree import DocumentInvalid
 import os
 from fb2tools import fb2tag, ArgumentsException, NotAFBZException
-from fb2tools.book import Book, BookStat
+from fb2tools.bookcreator import BookCreator, BookStat
 from fb2tools.section import Section
-from fb2tools.xpath import *
 
 logger = logging.getLogger('fb2merge')
 frmttr = logging.Formatter('%(asctime)s %(name)s %(levelname)s %(message)s', '%Y-%m-%d %H:%M:%S')
@@ -32,7 +32,7 @@ def main(sys_argv):
     if not options.title:
         raise ArgumentsException('No book title')
 
-    book = Book(options.title.decode('utf-8'))
+    books_combined = BookCreator(options.title.decode('utf-8'))
     bookstats = BookStat()
 
     for bookID, file in enumerate(chain(*imap(glob.iglob, args))):
@@ -40,25 +40,13 @@ def main(sys_argv):
             logger.info('Skipping %s: not a file' % file)
             continue
 
-        fo = open(file, 'r')
-        if file.endswith('.fb2.zip') or file.endswith('.fbz'):
-            try:
-                fo = Book.openZip(fo)
-            except NotAFBZException:
-                logger.warning('Not a valid fbz file: ' + file)
-                continue
-
-        logger.debug('Parsing tree: ' + file)
-        tree = etree.parse(fo)
-        fo.close()
-
-        ## VALIDATION
-
-        if not Book.validate_ext(tree):
-            logger.warn("Book doesn't validate: " + file)
+        try:
+            book = Book.fromFile(file, True)
+        except NotAFBZException:
+            logger.warning('Not a valid fbz file: ' + file)
             continue
 
-        bodies = BODY(tree)
+        bodies = book.getBodies()
 
         if len(bodies) > 2 or len(bodies) == 0:
             logger.error("Book %s has %d bodies" % (file, len(bodies)))
@@ -70,47 +58,43 @@ def main(sys_argv):
 
         ## #############################
 
-        bookinfo = bookstats.process(tree, bookID)
+        bookinfo = bookstats.process(book, bookID)
 
         ##################
 
         sp = Section(bodies[0])
         new_section = sp.rebuild_section(
-            annotation=first_or_none(ANNOTATION, tree),
-            cover=first_or_none(COVER, tree),
-            epigraphs=EPIGRAPH(tree),
-            title=bookinfo.key.title,
+            annotation=book.getAnnotation(),
+            cover=book.getCover(),
+            epigraphs=book.getEpigraphs(),
+            title=book.getTitle(),
         )
 
         booknotes = []
         if len(bodies) > 1:
-            for noteSection in bodies[1]:
+            for _pos, noteSection in enumerate(bodies[1]):
                 if not noteSection.tag == fb2tag('section'):
-                    logger.warn("Wrong note: %s" % noteSection.tag)
+                    if _pos or not noteSection.tag == fb2tag('title') :
+                        logger.warn("Wrong note: %s in %s" % (noteSection.tag, file))
                     continue
 
                 booknotes.append(noteSection)
 
-        book.insertBook(bookinfo.key, new_section, booknotes)
+        books_combined.insertBook(bookinfo.key, new_section, booknotes)
 
-        for binary in BINARY(tree):
+        for binary in book.getBinaries():
             bID = binary.attrib['id']
             if not bookinfo.referes(bID):
                 logger.info('Skipping binary %s' % bID)
                 continue
 
-            book.addBinary(binary)
-
-    book.finish(bookstats)
+            books_combined.addBinary(binary)
 
     try:
-        book.validate()
-        if options.zip:
-            book.savez(options.output)
-        else:
-            book.save(options.output)
+        book_output = books_combined.finish(bookstats)
+        book_output.saveAs(options.output, options.zip)
     except DocumentInvalid, e:
-        logger.warning('Not a valid book: %s' % e)
+        logger.critical('Not a valid book: %s' % e)
 
 if __name__ == '__main__':
     try:

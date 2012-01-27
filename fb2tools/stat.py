@@ -20,8 +20,11 @@ class XPathInfo(object):
     def __nonzero__(self):
         return bool(self._c)
 
-    def add(self, tree):
-        i = self._xpath(tree)
+    def add(self, book):
+        """
+        :type book: book.Book
+        """
+        i = book.xpath(self._xpath)
         if not len(i):
             if self._required:
                 raise ValueError('No title info data found')
