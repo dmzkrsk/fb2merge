@@ -3,12 +3,13 @@ from itertools import dropwhile
 from lxml import etree
 import hashlib
 from operator import attrgetter
+import base64
 import re
 from fb2tools.xpath import TITLE_INFO, SRC_TITLE_INFO, first_or_none
 import os
 from zipfile import ZipFile
 from . import NotAFBZException, FB2_NSMAP, X_REF
-from fb2tools import fb2tag
+from fb2tools import fb2tag, ImageLoadException
 from xpath import ELEMENTS_WITH_ID, ELEMENTS_WITH_REF
 from xml import build_element as _e
 from save import SaveXml, SaveZip
@@ -20,10 +21,10 @@ BODY = etree.XPath('//f:FictionBook/f:body', namespaces=FB2_NSMAP)
 AUTHORS = etree.XPath('//f:description/f:title-info/f:author', namespaces=FB2_NSMAP)
 
 EPIGRAPH = etree.XPath('//f:FictionBook/f:body[0]/f:epigraph', namespaces=FB2_NSMAP)
-COVER = etree.XPath('//f:description/f:title-info/f:coverpage/f:image[0]', namespaces=FB2_NSMAP)
+COVER = etree.XPath('//f:description/f:title-info/f:coverpage/f:image[starts-with(@x:href, "#")]', namespaces=FB2_NSMAP)
 ANNOTATION = etree.XPath('//f:description/f:title-info/f:annotation', namespaces=FB2_NSMAP)
 
-BINARY = etree.XPath('//f:FictionBook/f:binary', namespaces=FB2_NSMAP)
+BINARIES = etree.XPath('//f:FictionBook/f:binary', namespaces=FB2_NSMAP)
 
 _DS_INFO = etree.XPath('//f:description/*[contains(local-name(), "title-info")]', namespaces=FB2_NSMAP)
 _TAGS_BEFORE_DATE = map(fb2tag, ['genre', 'author', 'book-title', 'annotation', 'keywords'])
@@ -33,6 +34,9 @@ class Book(object):
     SCHEMA = etree.XMLSchema(file=FB2_SCHEMA)
 
     def __init__(self, tree, strict=False, saveMethod=None):
+        """
+        :type tree: lxml.etree._ElementTree
+        """
         self._tree = tree
         self._strict = strict
         self._saveMethod = saveMethod
@@ -150,8 +154,28 @@ class Book(object):
     def getCover(self):
         return first_or_none(COVER, self._tree)
 
+    def getImageData(self, ref):
+        if ref is None or X_REF not in ref.attrib:
+            return None
+
+        href = ref.attrib[X_REF][1:]
+        binaries = [
+            x for x in
+            self._tree.getiterator(fb2tag('binary'))
+            if x.attrib.get('id') == href and x.attrib.get('content-type', '').lower().startswith('image/')
+        ]
+
+        if not binaries:
+            raise ImageLoadException('No binaries found for #%s' % href)
+        elif len(binaries) > 1:
+            raise ImageLoadException('Multiple binaries found for #%s' % href)
+
+        bin = binaries[0]
+        rawImage = base64.b64decode(bin.text)
+        return rawImage
+
     def getBinaries(self):
-        return BINARY(self._tree)
+        return BINARIES(self._tree)
 
     def save(self):
         if self._strict or self._valid:

@@ -1,4 +1,5 @@
 # coding=utf-8
+import re
 from fb2tools import fb2tag
 
 class Formatter(object):
@@ -6,6 +7,9 @@ class Formatter(object):
         raise NotImplementedError()
 
 class SimpleAuthorFormatter(Formatter):
+    def __init__(self, reverse=True):
+        self._reverse = reverse
+
     def format(self, author):
         ao = {
             'first-name': '',
@@ -19,8 +23,11 @@ class SimpleAuthorFormatter(Formatter):
                     ao[k] = (t.text or '').strip()
                     break
 
-        nname = '%(last-name)s %(first-name)s %(middle-name)s' % ao
-        nname = nname.strip()
+        if self._reverse:
+            nname = '%(last-name)s %(first-name)s %(middle-name)s' % ao
+        else:
+            nname = '%(first-name)s %(middle-name)s %(last-name)s' % ao
+        nname = re.sub('\s{2,}', ' ', nname.strip())
         if not ao['nickname']:
             return nname
 

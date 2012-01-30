@@ -19,5 +19,8 @@ class ArgumentsException(Exception):
 class NotAFBZException(Exception):
     pass
 
+class ImageLoadException(Exception):
+    pass
+
 def fb2tag(tag):
     return '{%s}%s' % (FB2_NSMAP['f'], tag)
