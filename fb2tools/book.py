@@ -47,6 +47,9 @@ class Book(object):
         else:
             self._valid = self.SCHEMA.validate(self._tree)
 
+    def isValid(self):
+        return self._valid
+
     @classmethod
     def fromFile(cls, path, strict=False):
         fo = open(path, 'r')
@@ -176,6 +179,11 @@ class Book(object):
 
     def getBinaries(self):
         return BINARIES(self._tree)
+
+    def updateBinaries(self):
+        for b in self.getBinaries():
+            s = base64.b64decode(b.text)
+            b.text = base64.b64encode(s)
 
     def save(self):
         if self._strict or self._valid:
