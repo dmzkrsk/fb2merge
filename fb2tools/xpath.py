@@ -12,8 +12,8 @@ ELEMENTS_WITH_REF = etree.XPath('//*[@x:href and starts-with(@x:href, "#")]', na
 
 _eq = lambda x: x
 
-def first_or_none(selector, tree, processor=None):
-    l = selector(tree)
+def first_or_none(selector, tree, processor=None, **kwargs):
+    l = selector(tree, **kwargs)
 
     if not l:
         return None
